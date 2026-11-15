@@ -5,7 +5,7 @@ The fast route through the guide: two scripts, two reboots, and the Dux installe
 | Script | What it does | When |
 | --- | --- | --- |
 | [`setup.sh`](./setup.sh) | Updates, base tools, removes and blocks Snap, desktop plumbing (audio, printing, Flatpak…), optional NVIDIA driver, switch to NetworkManager | Right after installing Ubuntu Server |
-| [`post-dux.sh`](./post-dux.sh) | Firefox (Mozilla) and Brave via APT, Thunar, GNOME Text Editor, Flatpak apps (Gwenview, Nextcloud), ArtCraft repository (apps chosen later), Claude Code, autostart fix | After Dux, from a terminal inside the desktop |
+| [`post-dux.sh`](./post-dux.sh) | Firefox (Mozilla) and Brave via APT, Thunar, GNOME Text Editor, VLC, Flatpak apps (Gwenview, Nextcloud, Desktop+), ArtCraft apps, Claude Code, autostart fix, default apps | After Dux, from a terminal inside the desktop |
 
 ## Getting the scripts onto the machine
 
@@ -66,14 +66,14 @@ Open Alacritty **inside the Dux desktop** (not over SSH, as it needs your deskto
 ./post-dux.sh
 ```
 
-To change which Flatpaks it installs, edit the `FLATPAKS` list at the top of the script first.
+To change which Flatpaks or ArtCraft apps it installs, edit the `FLATPAKS` and `ARTCRAFT_APPS` lists at the top of the script first.
 
 ## Step 5: Finish off
 
 1. Log out and back in.
 2. Join Wi-Fi from Dux if needed.
 3. Run `claude` in a project folder to log in to Claude Code.
-4. Set your default browser and image viewer in Dux's settings (Thunar and GNOME Text Editor are already set as defaults).
+4. Default apps are set by the script. Pick an image viewer (e.g. Gwenview) in Dux's settings if you want one.
 5. Add any autostart apps in Dux's settings. For Nextcloud in the tray, add `--background` to the end of its command.
 
 Then run through the checklist in Section 8 of the main guide.

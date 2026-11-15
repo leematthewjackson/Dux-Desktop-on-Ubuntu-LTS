@@ -2,7 +2,8 @@
 # =============================================================================
 # Dux Desktop on Ubuntu LTS: STEP 2 of 2 - apps and finishing touches
 # Covers Sections 5-7 of the guide: browsers, Thunar, GNOME Text Editor,
-# Flatpak apps, the ArtCraft repository, Claude Code, and the autostart fix.
+# VLC, Flatpak apps, ArtCraft apps, Claude Code, the autostart fix, and
+# your default apps.
 #
 # WHEN:  After setup.sh, the reboot, and the Dux installer - once you've
 #        logged in to the Dux desktop.
@@ -26,6 +27,15 @@ set -euo pipefail
 FLATPAKS=(
   org.kde.gwenview                       # Image viewer
   com.nextcloud.desktopclient.nextcloud  # Nextcloud sync client
+  org.desktop_plus.desktop-plus          # Desktop+
+)
+
+# ArtCraft apps to install from ArtCraft's APT repository (no launcher).
+# See what's available with:
+#   grep -h '^Package:' /var/lib/apt/lists/*getartcraft*Packages | sort -u
+ARTCRAFT_APPS=(
+  anicraft deckcraft effectcraft figcraft filmcraft gridcraft
+  pdfcraft photocraft soundcraft vectorcraft wordcraft
 )
 
 # Expected repository key fingerprints. If one stops matching, check the
@@ -83,30 +93,27 @@ sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg \
 sudo curl -fsSLo /etc/apt/sources.list.d/brave-browser-release.sources \
   https://brave-browser-apt-release.s3.brave.com/brave-browser.sources
 
-# Install browsers, Thunar (replaces Dux Files) and GNOME Text Editor
-# (replaces Dux's editor).
+# Install browsers, Thunar (alongside Dux Files, as the default),
+# GNOME Text Editor, and VLC (Ubuntu's normal APT package, not a Snap).
 #   thunar-archive-plugin + xarchiver: "Extract here" / "Create archive"
 #   thunar-volman: handles USB drives    tumbler: thumbnails
+# Default apps for all of these are set in step 6.
 sudo apt update
 sudo apt install -y firefox brave-browser \
   thunar thunar-archive-plugin thunar-volman tumbler xarchiver \
-  gnome-text-editor
+  gnome-text-editor vlc
 
-# Make Thunar the default for folders and Text Editor the default for text.
-xdg-mime default thunar.desktop inode/directory
-xdg-mime default org.gnome.TextEditor.desktop text/plain
 
 # --- 2. Flatpak apps (guide Section 7) --------------------------------------
 # Flathub was added system-wide by setup.sh. Edit the FLATPAKS list at the top.
 echo "==> 2. Flatpak apps"
 flatpak install -y flathub "${FLATPAKS[@]}"
 
-# --- 3. ArtCraft repository (guide Section 7) -------------------------------
-# Adds the repository only - no apps are installed. Install the ArtCraft apps
-# you want later with apt (see the reminders at the end). Native APT packages
-# rather than Flatpaks, so their command-line tools are on your PATH for MCP
-# connections and update with apt upgrade.
-echo "==> 3. ArtCraft repository (apps installed later, by choice)"
+# --- 3. ArtCraft repository and apps (guide Section 7) ----------------------
+# Native APT packages rather than Flatpaks, so their command-line tools are
+# on your PATH for MCP connections and update with apt upgrade.
+# The apps to install are in the ARTCRAFT_APPS list at the top (no launcher).
+echo "==> 3. ArtCraft repository and apps"
 sudo install -d -m 755 /etc/apt/keyrings
 sudo curl -fsSL https://getartcraft.com/keys/artcraft.gpg -o /etc/apt/keyrings/artcraft.gpg
 sudo chmod 644 /etc/apt/keyrings/artcraft.gpg   # APT's _apt user must be able to read it
@@ -118,6 +125,7 @@ if ! gpg --show-keys /etc/apt/keyrings/artcraft.gpg 2>/dev/null | tr -d ' ' | gr
 fi
 sudo curl -fsSL https://getartcraft.com/apt/artcraft.sources -o /etc/apt/sources.list.d/artcraft.sources
 sudo apt update
+sudo apt install -y "${ARTCRAFT_APPS[@]}"
 
 # --- 4. Claude Code (guide Section 7) ---------------------------------------
 # Official installer: puts `claude` in ~/.local/bin and updates itself.
@@ -152,6 +160,54 @@ and add:
 EOF
 fi
 
+# --- 6. Default apps -------------------------------------------------------
+# Copied from the iMac's ~/.config/mimeapps.list (what Dux's default-apps
+# settings saved). Machine-specific entries Firefox and Claude Code create
+# by themselves are left out. Change them later in Dux's settings, or check
+# what's set with:  cat ~/.config/mimeapps.list
+echo "==> 6. Default apps"
+
+# Folders -> Thunar (Dux Files stays installed as an alternative)
+xdg-mime default thunar.desktop inode/directory
+
+# Text -> GNOME Text Editor
+xdg-mime default org.gnome.TextEditor.desktop text/plain
+
+# Web, links and PDFs/comics -> Firefox
+xdg-mime default firefox.desktop \
+  text/html application/xhtml+xml \
+  x-scheme-handler/http x-scheme-handler/https \
+  application/pdf application/x-bzpdf application/x-ext-pdf application/x-gzpdf \
+  application/vnd.comicbook+zip application/vnd.comicbook-rar
+
+# Calendar files and links -> Dux Calendar
+xdg-mime default dev.duxlabs.calendar.desktop \
+  text/calendar x-scheme-handler/calendar x-scheme-handler/webcal x-scheme-handler/webcals
+
+# Archives -> Xarchiver
+xdg-mime default xarchiver.desktop \
+  application/zip application/gzip application/x-tar application/x-xz \
+  application/x-bzip2 application/x-7z-compressed application/x-rar
+
+# Office documents -> ArtCraft apps
+xdg-mime default ai.storyteller.wordcraft.desktop \
+  application/msword application/rtf \
+  application/vnd.oasis.opendocument.text \
+  application/vnd.openxmlformats-officedocument.wordprocessingml.document
+xdg-mime default ai.storyteller.gridcraft.desktop \
+  application/vnd.ms-excel text/csv \
+  application/vnd.oasis.opendocument.spreadsheet \
+  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+xdg-mime default ai.storyteller.deckcraft.desktop \
+  application/vnd.ms-powerpoint \
+  application/vnd.oasis.opendocument.presentation \
+  application/vnd.openxmlformats-officedocument.presentationml.presentation
+
+# Video and audio -> VLC
+xdg-mime default vlc.desktop \
+  video/avi video/mp4 video/mpeg video/quicktime video/webm video/x-matroska video/x-msvideo \
+  audio/aac audio/mpeg audio/ogg audio/wav audio/webm audio/x-flac
+
 # --- Done: manual steps the script can't do ---------------------------------
 cat <<'EOF'
 
@@ -162,13 +218,13 @@ Next (manual):
   2. Join Wi-Fi from Dux if needed.
   3. Run `claude` in a project folder to log in to Claude Code (needs a browser).
   4. In Dux's settings:
-     - Set your default browser and image viewer (Gwenview).
+     - Default apps are already set (step 6). Images aren't - pick Gwenview
+       for them if you like.
      - Add autostart apps. For Nextcloud in the tray, add --background to the
        end of its command.
   5. Sign in to Nextcloud and Firefox/Brave sync.
-  6. Install the ArtCraft apps you want (the repository is already added):
-       apt search artcraft
-       sudo apt install <package-name>
+  6. Want more ArtCraft apps later? List what's available with:
+       grep -h '^Package:' /var/lib/apt/lists/*getartcraft*Packages | sort -u
   7. Run through the checklist in Section 8 of the guide (dms doctor, printing,
      audio, Bluetooth, sleep/wake...).
 EOF
