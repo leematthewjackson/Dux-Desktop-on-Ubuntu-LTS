@@ -1,32 +1,53 @@
 # Dux Desktop on Ubuntu LTS
 
-Hyprland desktop on a stable Ubuntu 26.04 LTS base, using Dux Shell. A step-by-step guide covering NetworkManager, audio, printing, Snap and Flatpak apps, and updates, tested on real hardware.
+Hyprland desktop on a stable Ubuntu 26.04 LTS base, using Dux Shell. A step-by-step guide covering NetworkManager, audio, printing, a Snap-free setup with APT and Flatpak apps, and updates, tested on real hardware.
 
-**Daily-desktop installation guide | Updated 13 November 2026**
+**Daily-desktop installation guide | Updated 15 November 2026**
 
 **Goal:** A cohesive "Omarchy-style" desktop on Ubuntu LTS, letting Dux own the desktop and adding only the services underneath it. No dotfiles (for now).
 
 **Tested on:** a 2017 iMac (iMac18,3, Intel) and a desktop PC with an NVIDIA GPU. Your hardware may need small adjustments; read each step before running it.
 
+**In a hurry?** The [`scripts`](./scripts/INSTALL.md) folder does all of this in two scripts with one reboot in between. This README is the long version, so you know what they're doing.
+
 ## Our choices
 
-- Ubuntu Server 26.04.1 LTS as the base, Snap left alone for ease. (I don't want to add custom repos for too many apps... I am aware of the irony that I have literally done that later on.)
+- Ubuntu Server 26.04.1 LTS as the base, with Snap removed and blocked, the Linux Mint way. (I don't want to add custom repos for too many apps... I am aware of the irony that I have literally done that for Firefox, Brave AND ArtCraft. Shhh.)
 - NetworkManager for Wi-Fi, Ethernet and VPNs (Dux's network controls use it) plus stops the silly 2 min Ubuntu Server boot times looking for connections.
 - Dux installer with Hyprland, Alacritty and all Dux features (greeter, search, calendar, files).
-- APT for system packages, Ubuntu's Firefox and Chromium Snaps, Flathub for other desktop apps.
-- No duplicate apps: Dux provides the bar, launcher, notifications, lock screen, clipboard, file manager and more.
+- APT for system packages and browsers (Firefox straight from Mozilla, Brave straight from Brave), Flathub for other desktop apps.
+- Dux provides the bar, launcher, notifications, lock screen, clipboard and more. Thunar and GNOME Text Editor stand in for Dux's own file manager and editor, because, well, I prefer them.
 
 > **Scope:** A normal DHCP home/office PC with local keyboard and monitor. Keep a keyboard handy for the networking change in Section 2.
 
 ## 1. Install and update Ubuntu Server
 
-Install [Ubuntu Server 26.04.1 LTS](https://ubuntu.com/download/server) with your normal sudo user. Skip optional server snaps; don't remove `snapd`. Tip: select OpenSSH Server so you can SSH in and copy and paste the commands below.... much easier than hand typing! (Read the note at the top of Section 2 first though.)
+Install [Ubuntu Server 26.04.1 LTS](https://ubuntu.com/download/server) with your normal sudo user. Skip the optional server snaps (we're about to evict Snap anyway). Tip: select OpenSSH Server so you can SSH in and copy and paste the commands below.... much easier than hand typing! (Read the note at the top of Section 2 first though.)
 
 ```bash
 sudo apt update && sudo apt full-upgrade -y
 sudo apt install -y curl wget git ca-certificates gnupg software-properties-common micro
+```
+
+### Remove Snap and keep it out
+
+Mint-style. Out it goes, and the pin file makes sure it never sneaks back in as a dependency of something else.
+
+```bash
+sudo apt purge -y snapd
+sudo rm -rf /snap /var/snap /var/lib/snapd ~/snap
+
+sudo tee /etc/apt/preferences.d/nosnap.pref >/dev/null <<'EOF'
+# Keep snapd out, the Linux Mint way
+Package: snapd
+Pin: release a=*
+Pin-Priority: -10
+EOF
+
 sudo reboot
 ```
+
+This guide is for fresh installs, so there are no Snap apps to lose at this point.
 
 ## 2. Switch to NetworkManager
 
@@ -112,7 +133,7 @@ sudo flatpak remote-add --if-not-exists flathub \
   https://dl.flathub.org/repo/flathub.flatpakrepo
 ```
 
-What these cover: audio and Bluetooth audio (`pipewire-audio`), USB drives and network shares, keyring, portals for file dialogs and screen sharing, battery/power profiles/brightness for Dux's controls, thumbnails for Dux Files, extra image formats for Dux (including AVIF/HEIC/JXL), printing and scanning with automatic network printer discovery (notes below), Flatpak with Flathub and AppImage support (`libfuse2t64`), fonts and icons, GNOME Disks and firmware updates. This clears the optional-feature warnings in Dux's System Check (`dms ipc call welcome doctor`).
+What these cover: audio and Bluetooth audio (`pipewire-audio`), USB drives and network shares, keyring, portals for file dialogs and screen sharing, battery/power profiles/brightness for Dux's controls, video and PDF thumbnails, extra image formats for Dux (including AVIF/HEIC/JXL), printing and scanning with automatic network printer discovery (notes below), Flatpak with Flathub and AppImage support (`libfuse2t64`), fonts and icons, GNOME Disks and firmware updates. This clears the optional-feature warnings in Dux's System Check (`dms ipc call welcome doctor`).
 
 ### Printing and scanning notes
 
@@ -146,30 +167,81 @@ Reboot and log in. Down in session options bottom right select Hyprland as I fin
 
 Once in... enjoy the ohhh and the aaahhh of Dux and go through its welcome process.
 
-## 6. Firefox and Chromium
+## 6. Browsers, file manager and text editor
 
-Both browsers use Ubuntu's Snaps, which update themselves. On Ubuntu, `apt install firefox` installs the Snap.
+All straight from APT, so they update with everything else and print without any faffing.
+
+### Firefox (from Mozilla's own repository)
 
 ```bash
-sudo apt install -y firefox
-sudo snap connect firefox:cups-control
+sudo install -d -m 0755 /etc/apt/keyrings
+wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | \
+  sudo tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null
+gpg --show-keys /etc/apt/keyrings/packages.mozilla.org.asc
 
-sudo snap install chromium
+sudo tee /etc/apt/sources.list.d/mozilla.sources >/dev/null <<'EOF'
+Types: deb
+URIs: https://packages.mozilla.org/apt
+Suites: mozilla
+Components: main
+Signed-By: /etc/apt/keyrings/packages.mozilla.org.asc
+EOF
+
+sudo tee /etc/apt/preferences.d/mozilla >/dev/null <<'EOF'
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+
+Package: firefox
+Pin: release o=Ubuntu
+Pin-Priority: -1
+EOF
 ```
 
-Firefox needs the `snap connect` line to see your printers. Without it, Settings can print but Firefox's print dialog shows no printers; restart Firefox after connecting. Chromium connects to printing automatically.
+The key's fingerprint should be `35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3`. The pins make APT use Mozilla's Firefox and never Ubuntu's "firefox" package, which is just a stub that installs the Snap. Sneaky.
+
+### Brave (from Brave's own repository)
+
+```bash
+sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg \
+  https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+sudo curl -fsSLo /etc/apt/sources.list.d/brave-browser-release.sources \
+  https://brave-browser-apt-release.s3.brave.com/brave-browser.sources
+```
+
+### Install the browsers, Thunar and GNOME Text Editor
+
+```bash
+sudo apt update
+sudo apt install -y firefox brave-browser \
+  thunar thunar-archive-plugin thunar-volman tumbler xarchiver \
+  gnome-text-editor
+
+xdg-mime default thunar.desktop inode/directory
+xdg-mime default org.gnome.TextEditor.desktop text/plain
+```
+
+- **Thunar** for files: `thunar-archive-plugin` + `xarchiver` give you "Extract here", `thunar-volman` handles USB drives, `tumbler` does thumbnails. Network shares and trash already work thanks to `gvfs` from Section 4.
+- **GNOME Text Editor** for quick notes and config tweaks.
+- The `xdg-mime` lines make them the defaults for folders and text files.
+
+Want the time in Thunar's "Date Modified" column? Edit → Preferences → Display → Date format. Took me a while to find that one!
+
+Set your default browser in Dux's settings.
 
 ## 7. Apps: Flatpak and AppImages
 
-Flatpak and Flathub are already set up from Section 4. Install apps from Flathub, for example the Flatseal permissions manager:
+Flatpak and Flathub are already set up from Section 4. Install apps from Flathub, for example the ones I use, Gwenview (image viewer) and the Nextcloud sync client:
 
 ```bash
-flatpak install -y flathub com.github.tchx84.Flatseal
+flatpak install -y flathub org.kde.gwenview com.nextcloud.desktopclient.nextcloud
 ```
+
+For Nextcloud to start quietly in the tray, add it to autostart in Dux's settings with `--background` on the end of its command.
 
 Log out and back in if new app icons don't show in the launcher.
 
-### ArtCraft launcher
+### ArtCraft repository
 
 Look... judge all you want but using the MCP with these apps is making me so productive!!!!! Native packages from ArtCraft's APT repository, so the apps' command-line tools are on your PATH for MCP connections and update with `apt upgrade`.
 
@@ -179,7 +251,13 @@ sudo curl -fsSL https://getartcraft.com/keys/artcraft.gpg -o /etc/apt/keyrings/a
 sudo chmod 644 /etc/apt/keyrings/artcraft.gpg
 sudo curl -fsSL https://getartcraft.com/apt/artcraft.sources -o /etc/apt/sources.list.d/artcraft.sources
 sudo apt update
-sudo apt install artcraft-launcher
+```
+
+That just adds the repository. Pick the apps you actually want:
+
+```bash
+apt search artcraft
+sudo apt install <package-name>
 ```
 
 The key's fingerprint, at least at the moment, should be `2B76741B414AAD6CD33E631213A005C0B9D7C3ED` (check with `gpg --show-keys /etc/apt/keyrings/artcraft.gpg`). Prefer these debs over ArtCraft's Flatpaks: sandboxed CLIs are awkward to call from MCP tools.
@@ -246,11 +324,11 @@ sudo reboot
 Log in through Dux Greeter and confirm:
 
 - [ ] Bar, launcher, notifications, lock screen, clipboard and emoji picker work.
-- [ ] Dux Search, Calendar and Files open; Files sees USB drives and network shares.
+- [ ] Dux Search and Calendar open; Thunar opens folders, USB drives and network shares.
 - [ ] Alacritty opens from the launcher and shortcut.
 - [ ] Wi-Fi/Ethernet and VPN controls work.
 - [ ] Speakers, microphone and Bluetooth audio work.
-- [ ] Firefox opens links, prints, and screen sharing works in the browser.
+- [ ] Firefox and Brave open links and print, and screen sharing works in the browser.
 - [ ] Monitors, scaling, sleep/wake, brightness and battery work.
 - [ ] Your keyboard layout (UK for me). If it's come up as US, set it in Hyprland's input settings.
 - [ ] Printing and scanning (`lpstat -e` lists network printers found).
@@ -276,9 +354,8 @@ flatpak update
 
 | What | How it updates |
 | --- | --- |
-| Ubuntu, Dux, Hyprland, ArtCraft and other APT packages | `sudo apt upgrade` |
+| Ubuntu, Dux, Hyprland, Firefox, Brave, ArtCraft and other APT packages | `sudo apt upgrade` |
 | Flatpak apps (e.g. Nextcloud) | `flatpak update` |
-| Firefox and Chromium (Snaps) | Automatic |
 | Claude Code | Automatic |
 | Security updates | Automatic (Ubuntu's unattended upgrades) |
 
@@ -290,11 +367,13 @@ Hyprland comes from a third-party PPA and changes quickly, so glance at `apt lis
 | --- | --- |
 | Bar, launcher, notifications, tray, clipboard, emoji, screenshots, wallpaper, lock/idle | Dux Shell |
 | Audio, network, Bluetooth, power, printer controls | Dux Shell + Ubuntu services |
-| Search / Calendar / Files | Dux Search / Dux Calendar / Dux Files |
+| Search / Calendar | Dux Search / Dux Calendar |
+| Files | Thunar |
+| Text editor | GNOME Text Editor |
 | Login | Dux Greeter |
 | Terminal | Alacritty |
 | Disks and partitions | GNOME Disks |
-| Browsers | Firefox and Chromium (Ubuntu Snaps) |
+| Browsers | Firefox (Mozilla APT) and Brave (Brave APT) |
 
 ## Sources
 
@@ -303,10 +382,13 @@ Hyprland comes from a third-party PPA and changes quickly, so glance at `apt lis
 - [Netplan](https://netplan.io/)
 - [Ubuntu NVIDIA drivers](https://ubuntu.com/desktop/docs/en/latest/how-to/graphics/install-nvidia-drivers/)
 - [AppImage FUSE](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)
+- [Firefox on Linux (Mozilla)](https://support.mozilla.org/en-US/kb/install-firefox-linux)
+- [Brave on Linux](https://brave.com/linux/)
+- [ArtCraft on Linux](https://getartcraft.com/linux)
 
 ---
 
-**Bottom line:** Ubuntu as the base, NetworkManager for networking, Dux for the desktop, and only the services it needs underneath.
+**Bottom line:** Ubuntu LTS as the base, no Snap, NetworkManager for networking, Dux for the desktop, and only the services it needs underneath.
 
 ---
 
